@@ -1,1 +1,0 @@
-# agent-tool-server-template
