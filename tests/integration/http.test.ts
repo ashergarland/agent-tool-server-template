@@ -69,7 +69,7 @@ describe('HTTP API', () => {
       method: 'POST',
       url: '/tools/example_get_item',
       headers: { 'x-api-key': apiKey },
-      payload: { input: { id: 'example-1' } },
+      payload: { id: 'example-1' },
     });
     expect(success.statusCode).toBe(200);
     expect(success.json().result.item.id).toBe('example-1');

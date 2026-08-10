@@ -123,9 +123,7 @@ export const createHttpServer = ({
     const principal = request.principal?.id ?? 'anonymous';
     const invokedAt = Date.now();
     request.log.info({ event: 'tool.invoke', tool: tool.name, kind: tool.kind, principal });
-    const body = request.body;
-    const input = body && typeof body === 'object' && 'input' in body ? body.input : (body ?? {});
-    const result = await tool.invoke(input, services, {
+    const result = await tool.invoke(request.body ?? {}, services, {
       requestId: request.id,
       principal,
     });

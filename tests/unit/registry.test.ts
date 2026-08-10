@@ -8,6 +8,7 @@ import { createToolRegistry, ToolRegistry } from '../../src/tools/registry.js';
 import { testConfig } from '../helpers/config.js';
 
 const context = { requestId: 'test', principal: 'tester' };
+const registry = createToolRegistry;
 
 describe('tool registry', () => {
   it('exposes unique definitions and schemas', () => {
@@ -49,5 +50,3 @@ describe('tool registry', () => {
     expect(() => registry().get('missing')).toThrow(AppError);
   });
 });
-
-const registry = createToolRegistry;
