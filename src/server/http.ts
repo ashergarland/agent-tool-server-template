@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import Fastify, { type FastifyReply } from 'fastify';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import type { Logger } from 'pino';
 import type { AppConfig } from '../config/index.js';
 import { AppError } from '../errors.js';
@@ -52,8 +52,6 @@ export const createHttpServer = ({
     config.http.rateLimit.max,
     config.http.rateLimit.windowMs,
   );
-  const isProtectedRoute = (url: string): boolean =>
-    url.startsWith('/tools') || url.startsWith('/mcp');
 
   const rateLimitError = (reply: FastifyReply, decision: RateLimitDecision): AppError => {
     void reply.header(
@@ -96,23 +94,30 @@ export const createHttpServer = ({
 
   void app.register(async (protectedApp) => {
     await protectedApp.register(fastifyRateLimit, {
-      max: Math.max(1, config.http.rateLimit.max * 2),
-      timeWindow: config.http.rateLimit.windowMs,
-      allowList: () => config.http.rateLimit.max === 0,
+      global: false,
       errorResponseBuilder: () =>
         new AppError('rate_limited', 'Too many requests; slow down and retry'),
     });
 
-    protectedApp.addHook('preValidation', async (request, reply) => {
-      if (!isProtectedRoute(request.url)) return;
+    const authenticateAndLimit = async (request: FastifyRequest, reply: FastifyReply) => {
       const principal = await authenticator.authenticate(request);
       request.principal = principal;
       const decision = limiter.consume(principal.id);
       void reply.header('x-ratelimit-remaining', String(decision.remaining));
       if (!decision.allowed) throw rateLimitError(reply, decision);
-    });
+    };
+    const protectedRouteOptions = {
+      config: {
+        rateLimit: {
+          max: Math.max(1, config.http.rateLimit.max * 2),
+          timeWindow: config.http.rateLimit.windowMs,
+          allowList: () => config.http.rateLimit.max === 0,
+        },
+      },
+      preValidation: authenticateAndLimit,
+    };
 
-    protectedApp.get('/tools', () => ({
+    protectedApp.get('/tools', protectedRouteOptions, () => ({
       tools: registry.list().map((tool) => ({
         name: tool.name,
         title: tool.title,
@@ -126,11 +131,12 @@ export const createHttpServer = ({
 
     protectedApp.post<{ Params: { toolName: string }; Body: unknown }>(
       '/tools/:toolName',
+      protectedRouteOptions,
       async (request) => {
         const tool = registry.get(request.params.toolName);
         const principal = request.principal?.id ?? 'anonymous';
         const invokedAt = Date.now();
-        request.log.info({ event: 'tool.invoke', tool: tool.name, kind: tool.kind, principal });
+        request.log.info({ event: 'tool.invoke', tool: tool.name, kind: tool.kind });
         const result = await tool.invoke(request.body ?? {}, services, {
           requestId: request.id,
           principal,
@@ -138,57 +144,56 @@ export const createHttpServer = ({
         request.log.info({
           event: 'tool.result',
           tool: tool.name,
-          principal,
           durationMs: Date.now() - invokedAt,
         });
         return { tool: tool.name, requestId: request.id, result };
       },
     );
 
-    protectedApp.route<{ Body: unknown }>({
-      method: ['GET', 'POST', 'DELETE'],
-      url: '/mcp',
-      handler: async (request, reply) => {
-        const transport = new StreamableHTTPServerTransport();
-        const server = createMcpServer(config, registry, services, {
-          requestId: request.id,
-          principal: request.principal?.id ?? 'anonymous',
-        });
-        let closed = false;
-        const close = async (): Promise<void> => {
-          if (closed) return;
-          closed = true;
-          await Promise.allSettled([transport.close(), server.close()]);
-        };
-        reply.raw.on('close', () => {
-          void close();
-        });
-        // The SDK's Node transport is structurally compatible, but its optional callbacks conflict
-        // with exactOptionalPropertyTypes in the SDK's own Transport declaration.
-        try {
-          await server.connect(transport as unknown as Transport);
-          reply.hijack();
-          await transport.handleRequest(request.raw, reply.raw, request.body);
-        } catch (error) {
-          await close();
-          if (!reply.sent) throw error;
-          request.log.error({ err: error, event: 'mcp.request.error' }, 'MCP request failed');
-          if (!reply.raw.headersSent) {
-            reply.raw.statusCode = 500;
-            reply.raw.setHeader('content-type', 'application/json');
-            reply.raw.end(
-              JSON.stringify({
-                jsonrpc: '2.0',
-                error: { code: -32603, message: 'Internal server error' },
-                id: null,
-              }),
-            );
-          } else {
-            reply.raw.destroy();
-          }
+    const handleMcp = async (request: FastifyRequest<{ Body: unknown }>, reply: FastifyReply) => {
+      const transport = new StreamableHTTPServerTransport();
+      const server = createMcpServer(config, registry, services, {
+        requestId: request.id,
+        principal: request.principal?.id ?? 'anonymous',
+      });
+      let closed = false;
+      const close = async (): Promise<void> => {
+        if (closed) return;
+        closed = true;
+        await Promise.allSettled([transport.close(), server.close()]);
+      };
+      reply.raw.on('close', () => {
+        void close();
+      });
+      // The SDK's Node transport is structurally compatible, but its optional callbacks conflict
+      // with exactOptionalPropertyTypes in the SDK's own Transport declaration.
+      try {
+        await server.connect(transport as unknown as Transport);
+        reply.hijack();
+        await transport.handleRequest(request.raw, reply.raw, request.body);
+      } catch (error) {
+        await close();
+        if (!reply.sent) throw error;
+        request.log.error({ err: error, event: 'mcp.request.error' }, 'MCP request failed');
+        if (!reply.raw.headersSent) {
+          reply.raw.statusCode = 500;
+          reply.raw.setHeader('content-type', 'application/json');
+          reply.raw.end(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              error: { code: -32603, message: 'Internal server error' },
+              id: null,
+            }),
+          );
+        } else {
+          reply.raw.destroy();
         }
-      },
-    });
+      }
+    };
+
+    protectedApp.get<{ Body: unknown }>('/mcp', protectedRouteOptions, handleMcp);
+    protectedApp.post<{ Body: unknown }>('/mcp', protectedRouteOptions, handleMcp);
+    protectedApp.delete<{ Body: unknown }>('/mcp', protectedRouteOptions, handleMcp);
   });
 
   return app;
