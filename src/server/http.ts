@@ -148,15 +148,39 @@ export const createHttpServer = ({
         requestId: request.id,
         principal: request.principal?.id ?? 'anonymous',
       });
-      reply.hijack();
+      let closed = false;
+      const close = async (): Promise<void> => {
+        if (closed) return;
+        closed = true;
+        await Promise.allSettled([transport.close(), server.close()]);
+      };
       reply.raw.on('close', () => {
-        void transport.close();
-        void server.close();
+        void close();
       });
       // The SDK's Node transport is structurally compatible, but its optional callbacks conflict
       // with exactOptionalPropertyTypes in the SDK's own Transport declaration.
-      await server.connect(transport as unknown as Transport);
-      await transport.handleRequest(request.raw, reply.raw, request.body);
+      try {
+        await server.connect(transport as unknown as Transport);
+        reply.hijack();
+        await transport.handleRequest(request.raw, reply.raw, request.body);
+      } catch (error) {
+        await close();
+        if (!reply.sent) throw error;
+        request.log.error({ err: error, event: 'mcp.request.error' }, 'MCP request failed');
+        if (!reply.raw.headersSent) {
+          reply.raw.statusCode = 500;
+          reply.raw.setHeader('content-type', 'application/json');
+          reply.raw.end(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              error: { code: -32603, message: 'Internal server error' },
+              id: null,
+            }),
+          );
+        } else {
+          reply.raw.destroy();
+        }
+      }
     },
   });
 

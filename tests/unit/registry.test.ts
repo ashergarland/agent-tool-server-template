@@ -8,7 +8,6 @@ import { createToolRegistry, ToolRegistry } from '../../src/tools/registry.js';
 import { testConfig } from '../helpers/config.js';
 
 const context = { requestId: 'test', principal: 'tester' };
-const registry = createToolRegistry;
 
 describe('tool registry', () => {
   it('exposes unique definitions and schemas', () => {
@@ -24,7 +23,7 @@ describe('tool registry', () => {
   it('validates input and output', async () => {
     const services = createServices(testConfig(), new MemoryProvider());
     await expect(
-      registry().invoke('example_get_item', {}, services, context),
+      createToolRegistry().invoke('example_get_item', {}, services, context),
     ).rejects.toMatchObject({
       code: 'bad_request',
     });
@@ -47,6 +46,6 @@ describe('tool registry', () => {
   it('rejects duplicate and unknown tools', () => {
     const definition = createToolRegistry().list()[0]!;
     expect(() => new ToolRegistry([definition as never, definition as never])).toThrow('Duplicate');
-    expect(() => registry().get('missing')).toThrow(AppError);
+    expect(() => createToolRegistry().get('missing')).toThrow(AppError);
   });
 });
