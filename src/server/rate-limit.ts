@@ -11,6 +11,7 @@ interface Window {
 
 export class FixedWindowRateLimiter {
   private readonly windows = new Map<string, Window>();
+  private nextSweepAtMs = 0;
 
   public constructor(
     private readonly max: number,
@@ -20,6 +21,12 @@ export class FixedWindowRateLimiter {
   public consume(key: string, now = Date.now()): RateLimitDecision {
     if (this.max === 0) {
       return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, resetAtMs: now + this.windowMs };
+    }
+    if (now >= this.nextSweepAtMs) {
+      for (const [windowKey, candidate] of this.windows) {
+        if (candidate.resetAtMs <= now) this.windows.delete(windowKey);
+      }
+      this.nextSweepAtMs = now + this.windowMs;
     }
     let window = this.windows.get(key);
     if (!window || window.resetAtMs <= now) {

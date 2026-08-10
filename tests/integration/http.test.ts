@@ -57,9 +57,33 @@ describe('HTTP API', () => {
 
   it('rate limits repeated unauthenticated attempts by client IP', async () => {
     const app = server({ RATE_LIMIT_MAX: 1 });
-    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(401);
-    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(401);
-    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(429);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/tools',
+          headers: { 'x-forwarded-for': '192.0.2.1' },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/tools',
+          headers: { 'x-forwarded-for': '192.0.2.2' },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/tools',
+          headers: { 'x-forwarded-for': '192.0.2.3' },
+        })
+      ).statusCode,
+    ).toBe(429);
   });
 
   it('supports development-only disabled authentication', async () => {

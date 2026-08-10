@@ -1,5 +1,5 @@
 import type { AppConfig } from '../config/index.js';
-import { AppError, toAppError } from '../errors.js';
+import { toAppError } from '../errors.js';
 import type { HttpServer } from './types.js';
 
 export const registerErrorHandler = (app: HttpServer, config: AppConfig): void => {
@@ -10,7 +10,7 @@ export const registerErrorHandler = (app: HttpServer, config: AppConfig): void =
         ? 'The tool server failed to complete the request'
         : appError.message;
 
-    if (!(error instanceof AppError)) {
+    if (appError.statusCode >= 500) {
       request.log.error({ err: error, event: 'request.error' }, 'unhandled request failure');
     }
 

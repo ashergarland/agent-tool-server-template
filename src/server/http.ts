@@ -45,7 +45,7 @@ export const createHttpServer = ({
     },
     requestIdHeader: false,
     bodyLimit: 1_000_000,
-    trustProxy: true,
+    trustProxy: false,
   });
   const authenticator = createAuthenticator(config);
   const limiter = new FixedWindowRateLimiter(

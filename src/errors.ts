@@ -26,8 +26,9 @@ export class AppError extends Error {
     message: string,
     public readonly details?: unknown,
     public readonly retryable = false,
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, { cause });
     this.statusCode = statusByCode[code];
   }
 }
@@ -42,4 +43,10 @@ export const notFound = (message: string, details?: unknown): AppError =>
 export const toAppError = (error: unknown): AppError =>
   error instanceof AppError
     ? error
-    : new AppError('internal_error', 'The tool server failed to complete the request');
+    : new AppError(
+        'internal_error',
+        'The tool server failed to complete the request',
+        undefined,
+        false,
+        error,
+      );

@@ -17,7 +17,7 @@ const equals = (left: Buffer, right: Buffer): boolean =>
 
 const credential = (request: FastifyRequest): string | undefined => {
   const authorization = request.headers.authorization;
-  if (authorization?.toLowerCase().startsWith('bearer ')) {
+  if (typeof authorization === 'string' && authorization.toLowerCase().startsWith('bearer ')) {
     return authorization.slice(7).trim() || undefined;
   }
   const apiKey = request.headers['x-api-key'];
