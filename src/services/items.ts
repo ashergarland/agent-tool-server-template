@@ -30,7 +30,8 @@ export class ItemService {
       dryRun: input.dryRun,
     });
     const current = await this.get(input.id);
-    if (dryRun) return { item: { ...current, status: input.status }, performed: false, dryRun: true };
+    if (dryRun)
+      return { item: { ...current, status: input.status }, performed: false, dryRun: true };
     const item = await this.provider.updateItemStatus(input.id, input.status);
     if (!item) throw notFound(`Unknown item: ${input.id}`);
     return { item, performed: true, dryRun: false };

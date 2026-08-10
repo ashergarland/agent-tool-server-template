@@ -123,8 +123,7 @@ export const buildOpenApiDocument = (config: AppConfig, registry: ToolRegistry):
     info: {
       title: 'Agent Tool Server Template',
       version: config.service.version,
-      description:
-        'Replaceable tool server infrastructure generated from one typed tool registry.',
+      description: 'Replaceable tool server infrastructure generated from one typed tool registry.',
     },
     servers: [{ url: config.service.publicBaseUrl ?? `http://localhost:${config.http.port}` }],
     security: config.auth.mode === 'disabled' ? [] : [{ bearerAuth: [] }],

@@ -34,8 +34,7 @@ export class AppError extends Error {
 
 export const badRequest = (message: string, details?: unknown): AppError =>
   new AppError('bad_request', message, details);
-export const unauthorized = (message: string): AppError =>
-  new AppError('unauthorized', message);
+export const unauthorized = (message: string): AppError => new AppError('unauthorized', message);
 export const forbidden = (message: string): AppError => new AppError('forbidden', message);
 export const notFound = (message: string, details?: unknown): AppError =>
   new AppError('not_found', message, details);

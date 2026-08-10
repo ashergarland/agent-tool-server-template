@@ -38,7 +38,9 @@ const erase = (definition: ToolDefinition): RegisteredTool => ({
   async invoke(rawInput, services, context) {
     const input = definition.inputSchema.safeParse(rawInput ?? {});
     if (!input.success) {
-      throw badRequest(`Invalid input for tool ${definition.name}`, { issues: issues(input.error) });
+      throw badRequest(`Invalid input for tool ${definition.name}`, {
+        issues: issues(input.error),
+      });
     }
     try {
       const rawOutput = await definition.handler(input.data, services, context);

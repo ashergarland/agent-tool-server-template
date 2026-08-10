@@ -1,8 +1,8 @@
-import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../config/index.js';
 import { AppError, toAppError } from '../errors.js';
+import type { HttpServer } from './types.js';
 
-export const registerErrorHandler = (app: FastifyInstance, config: AppConfig): void => {
+export const registerErrorHandler = (app: HttpServer, config: AppConfig): void => {
   app.setErrorHandler((error, request, reply) => {
     const appError = toAppError(error);
     const message =

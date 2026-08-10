@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import Fastify, { type FastifyReply } from 'fastify';
 import type { Logger } from 'pino';
 import type { AppConfig } from '../config/index.js';
@@ -56,7 +57,10 @@ export const createHttpServer = ({
   );
 
   const rateLimitError = (reply: FastifyReply, decision: RateLimitDecision): AppError => {
-    void reply.header('retry-after', String(Math.max(1, Math.ceil((decision.resetAtMs - Date.now()) / 1000))));
+    void reply.header(
+      'retry-after',
+      String(Math.max(1, Math.ceil((decision.resetAtMs - Date.now()) / 1000))),
+    );
     return new AppError('rate_limited', 'Too many requests; slow down and retry');
   };
 
@@ -141,7 +145,7 @@ export const createHttpServer = ({
     method: ['GET', 'POST', 'DELETE'],
     url: '/mcp',
     handler: async (request, reply) => {
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const transport = new StreamableHTTPServerTransport();
       const server = createMcpServer(config, registry, services, {
         requestId: request.id,
         principal: request.principal?.id ?? 'anonymous',
@@ -151,7 +155,9 @@ export const createHttpServer = ({
         void transport.close();
         void server.close();
       });
-      await server.connect(transport);
+      // The SDK's Node transport is structurally compatible, but its optional callbacks conflict
+      // with exactOptionalPropertyTypes in the SDK's own Transport declaration.
+      await server.connect(transport as unknown as Transport);
       await transport.handleRequest(request.raw, reply.raw, request.body);
     },
   });
