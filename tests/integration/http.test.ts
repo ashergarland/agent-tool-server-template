@@ -55,6 +55,13 @@ describe('HTTP API', () => {
     expect(response.json().tools).toHaveLength(3);
   });
 
+  it('rate limits repeated unauthenticated attempts by client IP', async () => {
+    const app = server({ RATE_LIMIT_MAX: 1 });
+    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/tools' })).statusCode).toBe(429);
+  });
+
   it('supports development-only disabled authentication', async () => {
     const response = await server({ AUTH_MODE: 'disabled' }).inject({
       method: 'GET',

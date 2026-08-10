@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import Fastify, { type FastifyReply } from 'fastify';
@@ -51,10 +52,15 @@ export const createHttpServer = ({
     config.http.rateLimit.max,
     config.http.rateLimit.windowMs,
   );
-  const preAuthLimiter = new FixedWindowRateLimiter(
-    config.http.rateLimit.max > 0 ? config.http.rateLimit.max * 2 : 0,
-    config.http.rateLimit.windowMs,
-  );
+  const isProtectedRoute = (url: string): boolean =>
+    url.startsWith('/tools') || url.startsWith('/mcp');
+
+  void app.register(fastifyRateLimit, {
+    max: Math.max(1, config.http.rateLimit.max * 2),
+    timeWindow: config.http.rateLimit.windowMs,
+    allowList: (request) =>
+      config.http.rateLimit.max === 0 || !isProtectedRoute(request.url),
+  });
 
   const rateLimitError = (reply: FastifyReply, decision: RateLimitDecision): AppError => {
     void reply.header(
@@ -70,13 +76,8 @@ export const createHttpServer = ({
     done(null, payload);
   });
 
-  // This hook applies both pre-authentication IP limiting and post-authentication principal
-  // limiting before any protected route handler executes.
-  // codeql[js/missing-rate-limiting]
   app.addHook('onRequest', async (request, reply) => {
-    if (!request.url.startsWith('/tools') && !request.url.startsWith('/mcp')) return;
-    const preAuth = preAuthLimiter.consume(`ip:${request.ip}`);
-    if (!preAuth.allowed) throw rateLimitError(reply, preAuth);
+    if (!isProtectedRoute(request.url)) return;
     const principal = await authenticator.authenticate(request);
     request.principal = principal;
     const decision = limiter.consume(principal.id);

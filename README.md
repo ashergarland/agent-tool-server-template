@@ -53,8 +53,9 @@ The default example uses disabled authentication only in development. For API-ke
 random key of at least 32 characters:
 
 ```bash
-AUTH_MODE=api-key API_KEYS='replace-with-a-random-32-character-key' npm run dev
-curl -H 'x-api-key: replace-with-a-random-32-character-key' http://localhost:8080/tools
+API_KEY="$(openssl rand -hex 32)"
+AUTH_MODE=api-key API_KEYS="$API_KEY" npm run dev
+curl -H "x-api-key: $API_KEY" http://localhost:8080/tools
 ```
 
 Build and run stdio MCP:

@@ -30,6 +30,7 @@
     "url": "git+https://github.com/ashergarland/agent-tool-server-template.git"
   },
   "dependencies": {
+    "@fastify/rate-limit": "^11.2.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "fastify": "5.11.2",
     "pino": "10.3.1",

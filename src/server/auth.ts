@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import type { AppConfig } from '../config/index.js';
 import { unauthorized } from '../errors.js';
@@ -12,15 +12,8 @@ export interface Authenticator {
   authenticate(request: FastifyRequest): Promise<Principal>;
 }
 
-const hmacKey = randomBytes(32);
-// API keys are high-entropy credentials, not passwords; a per-process keyed digest provides
-// fixed-width constant-time comparison without creating a CPU denial-of-service primitive.
-// codeql[js/insufficient-password-hash]
-const digest = (value: string): Buffer =>
-  createHmac('sha256', hmacKey).update(value, 'utf8').digest();
-const equals = (left: string, right: string): boolean =>
-  timingSafeEqual(digest(left), digest(right));
-const fingerprint = (value: string): string => digest(value).toString('hex').slice(0, 12);
+const equals = (left: Buffer, right: Buffer): boolean =>
+  left.length === right.length && timingSafeEqual(left, right);
 
 const credential = (request: FastifyRequest): string | undefined => {
   const authorization = request.headers.authorization;
@@ -38,15 +31,22 @@ class DisabledAuthenticator implements Authenticator {
 }
 
 class ApiKeyAuthenticator implements Authenticator {
-  public constructor(private readonly apiKeys: readonly string[]) {}
+  private readonly apiKeys: ReadonlyArray<{ value: Buffer; principalId: string }>;
+
+  public constructor(apiKeys: readonly string[]) {
+    this.apiKeys = apiKeys.map((value, index) => ({
+      value: Buffer.from(value, 'utf8'),
+      principalId: `key:${index + 1}`,
+    }));
+  }
 
   public authenticate(request: FastifyRequest): Promise<Principal> {
     const presented = credential(request);
     if (!presented) throw unauthorized('Missing bearer token or x-api-key header');
-    if (!this.apiKeys.some((candidate) => equals(candidate, presented))) {
-      throw unauthorized('Invalid API key');
-    }
-    return Promise.resolve({ id: `key:${fingerprint(presented)}`, kind: 'api-key' });
+    const presentedValue = Buffer.from(presented, 'utf8');
+    const match = this.apiKeys.find((candidate) => equals(candidate.value, presentedValue));
+    if (!match) throw unauthorized('Invalid API key');
+    return Promise.resolve({ id: match.principalId, kind: 'api-key' });
   }
 }
 
