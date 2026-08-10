@@ -20,6 +20,9 @@ param mutationsEnabled bool = false
 @description('Existing Key Vault secret name used by the application.')
 param apiKeySecretName string = 'tool-server-api-key'
 
+@description('Object ID allowed to seed the Key Vault secret during bootstrap; leave blank outside bootstrap.')
+param bootstrapPrincipalObjectId string = ''
+
 @description('Minimum replicas. Keep zero for scale-to-zero.')
 @minValue(0)
 param minReplicas int = 0
@@ -69,6 +72,7 @@ module keyVault 'modules/key-vault.bicep' = {
     location: location
     name: 'kv-ats-${suffix}'
     accessPrincipalObjectId: identity.outputs.principalId
+    bootstrapPrincipalObjectId: bootstrapPrincipalObjectId
     tags: resourceGroup.tags
   }
 }

@@ -9,6 +9,7 @@ server.
 - Docker
 - permission to create subscription deployments, a resource group, role assignments, and the
   included resources
+- a signed-in human user that can be granted Key Vault Secrets Officer during bootstrap
 - a selected subscription (`az account set --subscription ...`)
 
 Do not place subscription IDs, tenant IDs, credentials, or generated deployment names in tracked
@@ -38,6 +39,9 @@ immutable commit SHA. Do not use `latest` for production releases.
 The Container App uses a user-assigned managed identity to pull from ACR and read the Key Vault
 secret. No registry password or API key is embedded in Bicep. Add provider-specific role
 assignments in a separate module and grant only the actions required by registered tools.
+
+The interactive bootstrap user receives Key Vault Secrets Officer so it can seed and rotate this
+secret. Remove that assignment after handoff if a separate deployment identity manages rotation.
 
 ## Operations
 
