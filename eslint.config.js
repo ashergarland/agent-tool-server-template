@@ -17,8 +17,12 @@ export default tseslint.config(
   },
   {
     files: ['tests/**/*.ts', 'scripts/**/*.ts'],
-    rules: { 'no-console': 'off' },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/require-await': 'off',
+    },
   },
-  { ignores: ['dist/**', 'coverage/**', 'openapi.json'] },
+  { ignores: ['dist/**', 'coverage/**', 'openapi.json', 'eslint.config.js'] },
   prettier,
 );

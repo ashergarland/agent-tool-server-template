@@ -1,6 +1,6 @@
 param location string
 param name string
-param secretReaderPrincipalId string
+param accessPrincipalObjectId string
 param tags object
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -22,10 +22,10 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 }
 
 resource secretReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vault.id, secretReaderPrincipalId, 'key-vault-secrets-user')
+  name: guid(vault.id, accessPrincipalObjectId, 'key-vault-secrets-user')
   scope: vault
   properties: {
-    principalId: secretReaderPrincipalId
+    principalId: accessPrincipalObjectId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',

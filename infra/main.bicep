@@ -68,7 +68,7 @@ module keyVault 'modules/key-vault.bicep' = {
   params: {
     location: location
     name: 'kv-ats-${suffix}'
-    secretReaderPrincipalId: identity.outputs.principalId
+    accessPrincipalObjectId: identity.outputs.principalId
     tags: resourceGroup.tags
   }
 }
@@ -110,4 +110,4 @@ output registryName string = registry.outputs.name
 output registryLoginServer string = registry.outputs.loginServer
 output keyVaultName string = keyVault.outputs.name
 output managedIdentityClientId string = identity.outputs.clientId
-output applicationUrl string = deployApp ? 'https://${app.outputs.fqdn}' : ''
+output applicationUrl string = deployApp ? 'https://${app!.outputs.fqdn}' : ''

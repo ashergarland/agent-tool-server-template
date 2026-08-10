@@ -37,6 +37,15 @@ describe('HTTP API', () => {
 
   it('authenticates protected routes', async () => {
     expect((await server().inject({ method: 'GET', url: '/tools' })).statusCode).toBe(401);
+    expect(
+      (
+        await server().inject({
+          method: 'GET',
+          url: '/tools',
+          headers: { 'x-api-key': 'not-the-configured-key-but-long-enough' },
+        })
+      ).statusCode,
+    ).toBe(401);
     const response = await server().inject({
       method: 'GET',
       url: '/tools',
@@ -44,6 +53,14 @@ describe('HTTP API', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().tools).toHaveLength(3);
+  });
+
+  it('supports development-only disabled authentication', async () => {
+    const response = await server({ AUTH_MODE: 'disabled' }).inject({
+      method: 'GET',
+      url: '/tools',
+    });
+    expect(response.statusCode).toBe(200);
   });
 
   it('invokes tools and maps validation failures', async () => {
