@@ -13,6 +13,9 @@ export interface Authenticator {
 }
 
 const hmacKey = randomBytes(32);
+// API keys are high-entropy credentials, not passwords; a per-process keyed digest provides
+// fixed-width constant-time comparison without creating a CPU denial-of-service primitive.
+// codeql[js/insufficient-password-hash]
 const digest = (value: string): Buffer =>
   createHmac('sha256', hmacKey).update(value, 'utf8').digest();
 const equals = (left: string, right: string): boolean =>
