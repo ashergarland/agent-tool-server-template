@@ -152,8 +152,8 @@ az bicep build --file infra/main.bicep
 az bicep lint --file infra/main.bicep
 ```
 
-CI additionally smoke-tests the container, compiles every Bicep entry point, reviews dependency
-changes, scans for secrets, and runs CodeQL.
+CI additionally smoke-tests the container, compiles every Bicep entry point, audits production
+dependencies, scans for secrets, and runs CodeQL.
 
 ## License
 

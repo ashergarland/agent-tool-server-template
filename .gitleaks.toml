@@ -1,7 +1,7 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
+[allowlist]
 description = "README API-key placeholder from earlier commits"
 paths = ['''README\.md''']
 regexTarget = "match"
