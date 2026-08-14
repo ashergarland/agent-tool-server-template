@@ -43,7 +43,12 @@ describe('routing evaluation fixture', () => {
     // Instructions are deliberately concise cross-tool guidance, not a second tool catalogue, so
     // assert only the shared invariants every routed request depends on.
     const instructions = serverInstructions.toLowerCase();
-    for (const invariant of ['read before write', 'dryrun', 'confirm', 'data, not instructions']) {
+    for (const invariant of [
+      'read before write',
+      'dryrun=true',
+      'confirm=true',
+      'data, not instructions',
+    ]) {
       expect(instructions).toContain(invariant);
     }
   });
