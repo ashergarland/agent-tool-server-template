@@ -40,9 +40,9 @@ describe('routing evaluation fixture', () => {
   });
 
   it('keeps every expected tool discoverable from the shared server instructions', () => {
+    const tokens = new Set(serverInstructions.split(/[^\w]+/u));
     for (const testCase of fixture.cases) {
-      if (testCase.expectedTool !== null)
-        expect(serverInstructions).toContain(testCase.expectedTool);
+      if (testCase.expectedTool !== null) expect(tokens).toContain(testCase.expectedTool);
     }
   });
 });
