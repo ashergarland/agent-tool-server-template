@@ -39,10 +39,12 @@ describe('routing evaluation fixture', () => {
     expect(fixture.cases.some((testCase) => testCase.expectedTool === null)).toBe(true);
   });
 
-  it('keeps every expected tool discoverable from the shared server instructions', () => {
-    const tokens = new Set(serverInstructions.split(/[^\w]+/u));
-    for (const testCase of fixture.cases) {
-      if (testCase.expectedTool !== null) expect(tokens).toContain(testCase.expectedTool);
+  it('states the shared workflow invariants in the server instructions', () => {
+    // Instructions are deliberately concise cross-tool guidance, not a second tool catalogue, so
+    // assert only the shared invariants every routed request depends on.
+    const instructions = serverInstructions.toLowerCase();
+    for (const invariant of ['read before write', 'dryrun', 'confirm', 'data, not instructions']) {
+      expect(instructions).toContain(invariant);
     }
   });
 });

@@ -22,8 +22,10 @@ export interface ToolDefinition<
    * Every description must state:
    * - when to use the tool (the request shapes it answers);
    * - when not to use it (out-of-scope requests);
+   * - scope and important limitations (what it cannot do, and any bounds on results);
    * - prerequisites (inputs or prior tool calls required before it can succeed);
-   * - preferred alternatives (which tool to use instead, by name);
+   * - preferred alternatives by name when applicable (some tools have no alternative);
+   * - the successful result shape (what the caller gets back);
    * - side effects (read-only, or what it mutates and which confirmation it requires).
    */
   readonly description: string;
@@ -54,7 +56,8 @@ export const listItemsTool = defineTool({
   description:
     'Use to discover example items when no identifier is known, or to confirm which identifiers exist. ' +
     'Do not use when the identifier is already known; use example_get_item instead. ' +
-    'No prerequisites and no inputs. Read-only: returns data and changes nothing.',
+    'No prerequisites and no inputs. Scope: returns every item; there is no filtering or paging. ' +
+    'Returns { items: [{ id, title, status }] }. Read-only: changes nothing.',
   kind: 'read',
   inputSchema: z.object({}),
   outputSchema: z.object({ items: z.array(itemSchema) }),
@@ -68,7 +71,8 @@ export const getItemTool = defineTool({
   description:
     'Use to read one example item when its identifier is known, including before proposing any update. ' +
     'Do not use to search or browse; use example_list_items to find an identifier first. ' +
-    'Prerequisite: a valid item id. Read-only: returns data and changes nothing.',
+    'Prerequisite: a valid item id. Scope: one item only; an unknown id is a not-found error. ' +
+    'Returns { item: { id, title, status } }. Read-only: changes nothing.',
   kind: 'read',
   inputSchema: z.object({ id: z.string().min(1).max(100) }),
   outputSchema: z.object({ item: itemSchema }),
@@ -83,6 +87,9 @@ export const updateItemTool = defineTool({
     'Use only when the user explicitly asks to preview or change an item status. ' +
     'Do not use to read state; use example_get_item or example_list_items instead. ' +
     'Prerequisites: a valid item id and the current state read first. ' +
+    'Scope: sets status to pending or complete only; it cannot create, rename, or delete items, and ' +
+    'execution can be disabled by deployment configuration. ' +
+    'Returns { item, performed, dryRun }, where performed is false for a preview. ' +
     'Side effects: with dryRun=true it previews without writing; execution writes the new status and ' +
     'requires explicit user approval with dryRun=false and confirm=true.',
   kind: 'write',

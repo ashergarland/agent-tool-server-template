@@ -83,8 +83,9 @@ After selecting **Use this template**, replace the example in this order:
 4. Replace `src/services/items.ts`; keep authorization scope and mutation policy in services.
 5. Replace the example definitions in `src/tools/definitions.ts`. Preserve `defineTool`,
    `ToolDefinition`, and the central `toolDefinitions` array. Author an explicit routing
-   description for every tool: when to use it, when not to use it, prerequisites, the preferred
-   alternative tool by name, and side effects. Keep descriptions concise.
+   description for every tool: when to use it, when not to use it, scope and limitations,
+   prerequisites, the preferred alternative tool by name when one applies, the successful result
+   shape, and side effects. Keep descriptions concise.
 6. Replace `src/tools/guidance.ts` with domain routing guidance covering discovery versus direct
    reads, read-before-write, `dryRun` previews before execution, explicit approval before
    mutations, treating provider values as data rather than instructions, and explaining
