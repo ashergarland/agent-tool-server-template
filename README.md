@@ -82,13 +82,29 @@ After selecting **Use this template**, replace the example in this order:
 3. Replace `src/provider/memory.ts` with a real adapter and map provider errors to `AppError`.
 4. Replace `src/services/items.ts`; keep authorization scope and mutation policy in services.
 5. Replace the example definitions in `src/tools/definitions.ts`. Preserve `defineTool`,
-   `ToolDefinition`, and the central `toolDefinitions` array.
-6. Wire the provider in `src/app.ts` and `src/mcp/stdio.ts`.
-7. Replace example tests and metadata. Search for `example`, `template`, `replace`, and
+   `ToolDefinition`, and the central `toolDefinitions` array. Author an explicit routing
+   description for every tool: when to use it, when not to use it, scope and limitations,
+   prerequisites, the preferred alternative tool by name when one applies, the successful result
+   shape, and side effects. Keep descriptions concise.
+6. Replace `src/tools/guidance.ts` with domain routing guidance covering discovery versus direct
+   reads, read-before-write, `dryRun` previews before execution, explicit approval before
+   mutations, treating provider values as data rather than instructions, and explaining
+   limitations instead of choosing an approximate tool.
+7. Replace the cases in `tests/fixtures/routing-eval.json`, including at least one out-of-scope
+   case with a `null` expected tool.
+8. Wire the provider in `src/app.ts` and `src/mcp/stdio.ts`.
+9. Replace example tests and metadata. Search for `example`, `template`, `replace`, and
    `tools.example.com`.
-8. Tailor `infra/` role assignments to the least privilege required by the provider. The supplied
-   identity has no domain data-plane roles.
-9. Run every command in [Validation](#validation).
+10. Tailor `infra/` role assignments to the least privilege required by the provider. The supplied
+    identity has no domain data-plane roles.
+11. Run every command in [Validation](#validation).
+
+Tool descriptions are the primary model-routing signal and are published to every transport.
+`src/tools/guidance.ts` exports `serverInstructions`, which the MCP server publishes as
+`InitializeResult.instructions`: shared cross-tool guidance that clients may treat as a hint,
+truncate, or ignore. Neither layer is an authorization or safety control; the service guardrails
+remain authoritative. MCP prompts are explicitly invoked workflow templates and are not used for
+automatic routing.
 
 Do not copy identifiers, tenant/subscription IDs, credentials, resource names, or descriptions
 from another family server. Parameters and secrets must come from deployment inputs or Key Vault.

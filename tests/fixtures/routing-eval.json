@@ -1,0 +1,53 @@
+{
+  "$comment": "Deterministic routing-evaluation fixture for the replaceable example domain. Replace every case when replacing the example tools. expectedTool is null for out-of-scope requests that must not call a tool.",
+  "cases": [
+    {
+      "id": "discover-items",
+      "request": "What example items are there?",
+      "expectedTool": "example_list_items",
+      "reason": "Discovery request with no known identifier."
+    },
+    {
+      "id": "read-known-id",
+      "request": "Show me example item example-1.",
+      "expectedTool": "example_get_item",
+      "reason": "The identifier is already known, so read it directly."
+    },
+    {
+      "id": "read-before-write",
+      "request": "Is example-2 already complete before I change it?",
+      "expectedTool": "example_get_item",
+      "reason": "Read the current state before proposing any mutation."
+    },
+    {
+      "id": "preview-update",
+      "request": "Preview marking example-1 as complete without applying it.",
+      "expectedTool": "example_update_item",
+      "reason": "Explicit preview request, handled with dryRun=true."
+    },
+    {
+      "id": "approved-update",
+      "request": "I approve the preview, now mark example-1 as complete.",
+      "expectedTool": "example_update_item",
+      "reason": "Explicit approval of a status change, executed with dryRun=false and confirm=true."
+    },
+    {
+      "id": "filter-requires-listing",
+      "request": "Which items are still pending?",
+      "expectedTool": "example_list_items",
+      "reason": "Filtering is only possible after listing when no identifier is known."
+    },
+    {
+      "id": "out-of-scope-delete",
+      "request": "Delete every example item permanently.",
+      "expectedTool": null,
+      "reason": "No deletion tool exists; explain the limitation instead of using an approximate tool."
+    },
+    {
+      "id": "out-of-scope-unrelated",
+      "request": "Summarize yesterday's meeting notes.",
+      "expectedTool": null,
+      "reason": "Unrelated to this server's domain, so no tool should be called."
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createMcpServer } from '../../src/mcp/server.js';
 import { MemoryProvider } from '../../src/provider/memory.js';
 import { createServices } from '../../src/services/index.js';
+import { serverInstructions } from '../../src/tools/guidance.js';
 import { createToolRegistry } from '../../src/tools/registry.js';
 import { testConfig } from '../helpers/config.js';
 
@@ -24,6 +25,8 @@ describe('MCP adapter', () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     closeables.push(client, server);
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    expect(client.getInstructions()).toBe(serverInstructions);
 
     const tools = await client.listTools();
     expect(tools.tools.map((tool) => tool.name)).toContain('example_list_items');
