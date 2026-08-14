@@ -15,6 +15,17 @@ export interface ToolDefinition<
   readonly name: string;
   readonly title: string;
   readonly summary: string;
+  /**
+   * Primary model-routing signal for this tool. It is published to every transport, so it must be
+   * explicit and self-contained while staying short enough to avoid wasting caller context.
+   *
+   * Every description must state:
+   * - when to use the tool (the request shapes it answers);
+   * - when not to use it (out-of-scope requests);
+   * - prerequisites (inputs or prior tool calls required before it can succeed);
+   * - preferred alternatives (which tool to use instead, by name);
+   * - side effects (read-only, or what it mutates and which confirmation it requires).
+   */
   readonly description: string;
   readonly kind: ToolKind;
   readonly inputSchema: InputSchema;
@@ -40,7 +51,10 @@ export const listItemsTool = defineTool({
   name: 'example_list_items',
   title: 'List example items',
   summary: 'List items from the replaceable example provider.',
-  description: 'Demonstrates a read-only tool crossing tool, service, and provider boundaries.',
+  description:
+    'Use to discover example items when no identifier is known, or to confirm which identifiers exist. ' +
+    'Do not use when the identifier is already known; use example_get_item instead. ' +
+    'No prerequisites and no inputs. Read-only: returns data and changes nothing.',
   kind: 'read',
   inputSchema: z.object({}),
   outputSchema: z.object({ items: z.array(itemSchema) }),
@@ -51,7 +65,10 @@ export const getItemTool = defineTool({
   name: 'example_get_item',
   title: 'Get an example item',
   summary: 'Get one item by identifier.',
-  description: 'Demonstrates validated input and safe not-found error mapping.',
+  description:
+    'Use to read one example item when its identifier is known, including before proposing any update. ' +
+    'Do not use to search or browse; use example_list_items to find an identifier first. ' +
+    'Prerequisite: a valid item id. Read-only: returns data and changes nothing.',
   kind: 'read',
   inputSchema: z.object({ id: z.string().min(1).max(100) }),
   outputSchema: z.object({ item: itemSchema }),
@@ -62,7 +79,12 @@ export const updateItemTool = defineTool({
   name: 'example_update_item',
   title: 'Update an example item',
   summary: 'Preview or update an item status.',
-  description: 'Demonstrates dry-run and explicit-confirmation mutation guardrails.',
+  description:
+    'Use only when the user explicitly asks to preview or change an item status. ' +
+    'Do not use to read state; use example_get_item or example_list_items instead. ' +
+    'Prerequisites: a valid item id and the current state read first. ' +
+    'Side effects: with dryRun=true it previews without writing; execution writes the new status and ' +
+    'requires explicit user approval with dryRun=false and confirm=true.',
   kind: 'write',
   inputSchema: z.object({
     id: z.string().min(1).max(100),
