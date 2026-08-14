@@ -14,7 +14,7 @@ const fixtureSchema = z.object({
         reason: z.string().min(1),
       }),
     )
-    .min(6),
+    .length(8),
 });
 
 const fixtureUrl = new URL('../fixtures/routing-eval.json', import.meta.url);

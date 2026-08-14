@@ -56,6 +56,8 @@ export const listItemsTool = defineTool({
   description:
     'Use to discover example items when no identifier is known, or to confirm which identifiers exist. ' +
     'Do not use when the identifier is already known; use example_get_item instead. ' +
+    'Do not use to change an item status; that is out of scope for this read-only tool, use ' +
+    'example_update_item instead. ' +
     'No prerequisites and no inputs. Scope: returns every item; there is no filtering or paging. ' +
     'Returns { items: [{ id, title, status }] }. Read-only: changes nothing.',
   kind: 'read',
@@ -71,6 +73,8 @@ export const getItemTool = defineTool({
   description:
     'Use to read one example item when its identifier is known, including before proposing any update. ' +
     'Do not use to search or browse; use example_list_items to find an identifier first. ' +
+    'Do not use to change an item status; that is out of scope for this read-only tool, use ' +
+    'example_update_item instead. ' +
     'Prerequisite: a valid item id. Scope: one item only; an unknown id is a not-found error. ' +
     'Returns { item: { id, title, status } }. Read-only: changes nothing.',
   kind: 'read',
