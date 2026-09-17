@@ -1,9 +1,16 @@
 import { defineTool, type AnyToolDefinition } from '@agent-tool-platform/runtime/tools';
 import { z } from 'zod';
-import type { CapabilityServices } from '../domain/text-inspector.js';
+import { countUnicodeCodePoints, type CapabilityServices } from '../domain/text-inspector.js';
+
+const MAX_TEXT_CHARACTERS = 10_000;
 
 const inspectTextInputSchema = z.object({
-  text: z.string().max(10_000),
+  text: z
+    .string()
+    .refine((value) => countUnicodeCodePoints(value) <= MAX_TEXT_CHARACTERS, {
+      error: `Text must contain at most ${MAX_TEXT_CHARACTERS} Unicode code points`,
+    })
+    .meta({ maxLength: MAX_TEXT_CHARACTERS }),
 });
 
 const inspectTextOutputSchema = z.object({

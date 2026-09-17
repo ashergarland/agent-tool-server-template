@@ -5,7 +5,7 @@ import { TextInspector } from '../../src/domain/text-inspector.js';
 import { capabilityTools } from '../../src/tools/definitions.js';
 
 describe('text inspection domain', () => {
-  it('counts bytes, Unicode characters, lines, and words', () => {
+  it('counts bytes, Unicode code points, lines, and words', () => {
     expect(new TextInspector().inspect('one 😀\nthree')).toEqual({
       bytes: 14,
       characters: 11,
@@ -40,15 +40,63 @@ describe('text inspection domain', () => {
     });
   });
 
-  it('rejects input outside the declared bound', async () => {
+  it('accepts exactly 10,000 non-BMP Unicode code points', async () => {
     const registry = createToolRegistry(capabilityTools);
     await expect(
       registry.invoke(
         'inspect_text',
-        { text: 'x'.repeat(10_001) },
+        { text: '😀'.repeat(10_000) },
+        { text: new TextInspector() },
+        createTestInvocationContext(),
+      ),
+    ).resolves.toMatchObject({
+      bytes: 40_000,
+      characters: 10_000,
+    });
+  });
+
+  it('rejects exactly 10,001 non-BMP Unicode code points', async () => {
+    const registry = createToolRegistry(capabilityTools);
+    await expect(
+      registry.invoke(
+        'inspect_text',
+        { text: '😀'.repeat(10_001) },
         { text: new TextInspector() },
         createTestInvocationContext(),
       ),
     ).rejects.toMatchObject({ code: 'bad_request' });
+  });
+
+  it('preserves the ASCII boundary', async () => {
+    const registry = createToolRegistry(capabilityTools);
+    const services = { text: new TextInspector() };
+
+    await expect(
+      registry.invoke(
+        'inspect_text',
+        { text: 'x'.repeat(10_000) },
+        services,
+        createTestInvocationContext(),
+      ),
+    ).resolves.toMatchObject({ characters: 10_000 });
+    await expect(
+      registry.invoke(
+        'inspect_text',
+        { text: 'x'.repeat(10_001) },
+        services,
+        createTestInvocationContext(),
+      ),
+    ).rejects.toMatchObject({ code: 'bad_request' });
+  });
+
+  it('retains the declared maximum in the registry JSON Schema', () => {
+    const registry = createToolRegistry(capabilityTools);
+    expect(registry.get('inspect_text').inputJsonSchema).toMatchObject({
+      properties: {
+        text: {
+          maxLength: 10_000,
+        },
+      },
+    });
   });
 });
