@@ -1,114 +1,48 @@
+import { defineTool, type AnyToolDefinition } from '@agent-tool-platform/runtime/tools';
 import { z } from 'zod';
-import type { Services } from '../services/index.js';
+import { countUnicodeCodePoints, type CapabilityServices } from '../domain/text-inspector.js';
 
-export interface ToolInvocationContext {
-  readonly requestId: string;
-  readonly principal: string;
-}
+const MAX_TEXT_CHARACTERS = 10_000;
 
-export type ToolKind = 'read' | 'write';
-
-export interface ToolDefinition<
-  InputSchema extends z.ZodType = z.ZodType,
-  OutputSchema extends z.ZodType = z.ZodType,
-> {
-  readonly name: string;
-  readonly title: string;
-  readonly summary: string;
-  /**
-   * Primary model-routing signal for this tool. It is published to every transport, so it must be
-   * explicit and self-contained while staying short enough to avoid wasting caller context.
-   *
-   * Every description must state:
-   * - when to use the tool (the request shapes it answers);
-   * - when not to use it (out-of-scope requests);
-   * - scope and important limitations (what it cannot do, and any bounds on results);
-   * - prerequisites (inputs or prior tool calls required before it can succeed);
-   * - preferred alternatives by name when applicable (some tools have no alternative);
-   * - the successful result shape (what the caller gets back);
-   * - side effects (read-only, or what it mutates and which confirmation it requires).
-   */
-  readonly description: string;
-  readonly kind: ToolKind;
-  readonly inputSchema: InputSchema;
-  readonly outputSchema: OutputSchema;
-  readonly handler: (
-    input: z.output<InputSchema>,
-    services: Services,
-    context: ToolInvocationContext,
-  ) => Promise<z.output<OutputSchema>>;
-}
-
-export const defineTool = <InputSchema extends z.ZodType, OutputSchema extends z.ZodType>(
-  definition: ToolDefinition<InputSchema, OutputSchema>,
-): ToolDefinition<InputSchema, OutputSchema> => definition;
-
-const itemSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  status: z.enum(['pending', 'complete']),
+const inspectTextInputSchema = z.object({
+  text: z
+    .string()
+    .refine((value) => countUnicodeCodePoints(value) <= MAX_TEXT_CHARACTERS, {
+      error: `Text must contain at most ${MAX_TEXT_CHARACTERS} Unicode code points`,
+    })
+    .meta({ maxLength: MAX_TEXT_CHARACTERS }),
 });
 
-export const listItemsTool = defineTool({
-  name: 'example_list_items',
-  title: 'List example items',
-  summary: 'List items from the replaceable example provider.',
+const inspectTextOutputSchema = z.object({
+  bytes: z.number().int().nonnegative(),
+  characters: z.number().int().nonnegative(),
+  lines: z.number().int().nonnegative(),
+  words: z.number().int().nonnegative(),
+});
+
+export type InspectTextInput = z.infer<typeof inspectTextInputSchema>;
+export type InspectTextOutput = z.infer<typeof inspectTextOutputSchema>;
+
+export const inspectTextTool = defineTool({
+  name: 'inspect_text',
+  title: 'Inspect text',
+  summary: 'Count bytes, characters, lines, and words in supplied text.',
   description:
-    'Use to discover example items when no identifier is known, or to confirm which identifiers exist. ' +
-    'Do not use when the identifier is already known; use example_get_item instead. ' +
-    'Do not use to change an item status; that is out of scope for this read-only tool, use ' +
-    'example_update_item instead. ' +
-    'No prerequisites and no inputs. Scope: returns every item; there is no filtering or paging. ' +
-    'Returns { items: [{ id, title, status }] }. Read-only: changes nothing.',
+    'Measure the shape of caller-supplied text without storing it or interpreting its meaning.',
   kind: 'read',
-  inputSchema: z.object({}),
-  outputSchema: z.object({ items: z.array(itemSchema) }),
-  handler: async (_input, services) => ({ items: [...(await services.items.list())] }),
+  routing: {
+    useWhen: ['you need byte, character, line, or word counts for text already supplied'],
+    doNotUseWhen: [
+      'you need a summary, translation, semantic analysis, file read, or state change; this capability does none of those',
+    ],
+    scope: 'at most 10,000 characters supplied directly in the call',
+    changesState: false,
+  },
+  inputSchema: inspectTextInputSchema,
+  outputSchema: inspectTextOutputSchema,
+  handler(input, services: CapabilityServices) {
+    return Promise.resolve(services.text.inspect(input.text));
+  },
 });
 
-export const getItemTool = defineTool({
-  name: 'example_get_item',
-  title: 'Get an example item',
-  summary: 'Get one item by identifier.',
-  description:
-    'Use to read one example item when its identifier is known, including before proposing any update. ' +
-    'Do not use to search or browse; use example_list_items to find an identifier first. ' +
-    'Do not use to change an item status; that is out of scope for this read-only tool, use ' +
-    'example_update_item instead. ' +
-    'Prerequisite: a valid item id. Scope: one item only; an unknown id is a not-found error. ' +
-    'Returns { item: { id, title, status } }. Read-only: changes nothing.',
-  kind: 'read',
-  inputSchema: z.object({ id: z.string().min(1).max(100) }),
-  outputSchema: z.object({ item: itemSchema }),
-  handler: async (input, services) => ({ item: await services.items.get(input.id) }),
-});
-
-export const updateItemTool = defineTool({
-  name: 'example_update_item',
-  title: 'Update an example item',
-  summary: 'Preview or update an item status.',
-  description:
-    'Use only when the user explicitly asks to preview or change an item status. ' +
-    'Do not use to read state; use example_get_item or example_list_items instead. ' +
-    'Prerequisites: a valid item id and the current state read first. ' +
-    'Scope: sets status to pending or complete only; it cannot create, rename, or delete items, and ' +
-    'execution can be disabled by deployment configuration. ' +
-    'Returns { item, performed, dryRun }, where performed is false for a preview. ' +
-    'Side effects: with dryRun=true it previews without writing; execution writes the new status and ' +
-    'requires explicit user approval with dryRun=false and confirm=true.',
-  kind: 'write',
-  inputSchema: z.object({
-    id: z.string().min(1).max(100),
-    status: z.enum(['pending', 'complete']),
-    dryRun: z.boolean().default(false),
-    confirm: z.boolean().default(false),
-  }),
-  outputSchema: z.object({ item: itemSchema, performed: z.boolean(), dryRun: z.boolean() }),
-  handler: (input, services) => services.items.updateStatus(input),
-});
-
-export const toolDefinitions = [
-  listItemsTool,
-  getItemTool,
-  updateItemTool,
-] as const satisfies readonly ToolDefinition[];
+export const capabilityTools: readonly AnyToolDefinition<CapabilityServices>[] = [inspectTextTool];
