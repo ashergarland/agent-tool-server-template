@@ -1,159 +1,111 @@
-# Agent Tool Server Template
+# Agent Tool Capability Template
 
-Reusable GitHub template for the `ashergarland/agent-tool-server-*` family. It provides generic
-infrastructure for one typed tool registry exposed through stdio MCP, stateless Streamable HTTP
-MCP, and HTTP/OpenAPI. The example item domain is intentionally disposable.
+A thin, local-first GitHub template for one capability built on
+[`@agent-tool-platform/runtime`](https://github.com/ashergarland/agent-tool-platform/tree/98ec8162fb11d5c04aee9e6f7b3625a472a0180d/packages/runtime).
+It demonstrates one harmless read-only tool over stdio without copying runtime, transport,
+lifecycle, filesystem, process, security, deployment-validation, or release machinery.
 
-## Included contract
+The checked-in package version is always `0.0.0-development`. A pushed stable `vX.Y.Z` tag is the
+authoritative release version; the shared release workflow stamps package and server metadata only
+on its runner.
 
-| Method            | Path                | Authentication | Purpose                                 |
-| ----------------- | ------------------- | -------------- | --------------------------------------- |
-| `GET`             | `/health`           | Public         | Liveness/readiness                      |
-| `GET`             | `/version`          | Public         | Build and capability metadata           |
-| `GET`             | `/openapi.json`     | Public         | OpenAPI 3.1 generated from the registry |
-| `GET`             | `/tools`            | Required       | Tool catalogue and input/output schemas |
-| `POST`            | `/tools/{toolName}` | Required       | Invoke one registered tool              |
-| `GET/POST/DELETE` | `/mcp`              | Required       | Stateless Streamable HTTP MCP           |
+## Start a capability
 
-`src/tools/definitions.ts` is the single source of truth. Zod schemas drive runtime input and
-output validation, MCP registration, JSON Schema, OpenAPI operations, read/write annotations, and
-mutation policy. Do not independently define transport-specific tool lists.
+1. Select **Use this template** on GitHub and create an `agent-tool-server-*` repository.
+2. Replace these template identities everywhere they occur:
 
-## Architecture
+   | Replace                               | With                                     |
+   | ------------------------------------- | ---------------------------------------- |
+   | `agent-tool-server-template`          | Repository and npm package name          |
+   | `agent-tool-capability-template`      | Installed executable name                |
+   | `io.github.ashergarland/...-template` | Stable capability ID                     |
+   | `Thin Capability Template`            | Human-readable capability name           |
+   | `https://github.com/.../...-template` | New public repository URL                |
+   | `urn:io.github...template...`         | Capability-owned configuration schema ID |
+
+   Update `package.json`, `server.json`, `capability-profiles.json`, `src/manifest.ts`, and
+   `examples/central-registry-entry.json` together. Keep `0.0.0-development` in source.
+
+3. Replace `src/domain/text-inspector.ts`, `src/tools/definitions.ts`, and
+   `src/tools/guidance.ts` with the capability's domain behavior. Keep routing cases under
+   `tests/fixtures/` truthful.
+4. Run `npm ci`, then the validation commands below.
+
+No generator, registry, monorepo conversion, agent manifest, or host adapter is involved.
+
+## What belongs where
+
+| Capability repository owns                                      | Agent Tool Platform owns                              |
+| --------------------------------------------------------------- | ----------------------------------------------------- |
+| Tool definitions, schemas, handlers, and routing guidance       | Tool registry validation and transport publication    |
+| Domain services and provider adapters                           | Application assembly, HTTP/MCP, OpenAPI, and auth     |
+| Capability configuration and domain validation                  | Shared configuration, lifecycle, readiness, shutdown  |
+| Domain readiness contributors and lifecycle hooks when required | Scratch, bounded filesystem/process, cancellation     |
+| Domain tests and truthful profile metadata                      | Generic conformance, metadata/deployment validators   |
+| Profile-specific deployment assets when actually supported      | Reusable CI, security, package, and release mechanics |
+
+`src/capability.ts` is composition, not another abstraction layer. `src/stdio.ts` makes the single
+Platform startup call. Do not rebuild either mechanism in capability code.
+
+## Repository map
 
 ```text
-HTTP / OpenAPI / MCP transports
-             |
-       ToolRegistry
-             |
-          Services
-             |
-       Provider port
-             |
-      Provider adapter
+src/
+  capability.ts              capability composition
+  domain/                    domain services and adapters
+  tools/                     definitions, handlers, routing guidance
+  manifest.ts                runtime identity
+  public.ts                  package library exports
+  stdio.ts                   host-neutral executable entrypoint
+capability-profiles.json     public supported deployment shapes
+schemas/                     capability-owned public configuration schemas
+tests/unit/                  domain and capability truthfulness tests
+tests/conformance/           reusable Platform contract checks
 ```
 
-- Transports contain no provider or product logic.
-- Services implement domain behavior and use provider interfaces, never SDK types.
-- Provider adapters translate external failures to `AppError`.
-- Every transport uses the same `ToolRegistry`.
-- Write tools pass through `Guardrails` before calling a provider.
-
-## Start locally
+## Run the capability
 
 Node.js 22 is required.
 
 ```bash
 npm ci
-cp .env.example .env
-npm run dev
-```
-
-The default example uses disabled authentication only in development. For API-key mode, use a
-random key of at least 32 characters:
-
-```bash
-API_KEY="$(openssl rand -hex 32)"
-AUTH_MODE=api-key API_KEYS="$API_KEY" npm run dev
-curl -H "x-api-key: $API_KEY" http://localhost:8080/tools
-```
-
-Build and run stdio MCP:
-
-```bash
 npm run build
 npm run mcp:stdio
 ```
 
-Generate the OpenAPI artifact:
+The stdio executable is an MCP capability endpoint, not a VS Code, ChatGPT, Claude, or other agent
+host. Any conforming client can launch it. Local execution binds no network listener and needs no
+cloud account, container, provider credential, secret store, or infrastructure deployment.
 
-```bash
-npm run openapi:emit
+The package also exports the capability definition and its domain types for tests or embedding.
+
+## Profiles and deployment ownership
+
+[`capability-profiles.json`](capability-profiles.json) declares one truthful `local-package`
+profile:
+
+```text
+execution=local
+delivery=package
+access=local-process
+workload=none
+provider=none
+mutation=read-only
 ```
 
-## Create a new family server
+Every profile must explicitly declare all six dimensions. Hosted/provider-backed does not imply
+mutating, and mutating support requires its own truthful safeguards. See
+[`docs/deployment-profiles.md`](docs/deployment-profiles.md) before adding a hosted or hybrid
+profile.
 
-After selecting **Use this template**, replace the example in this order:
-
-1. Update `package.json`, `server.json`, `.env.example`, and the title/description in
-   `src/openapi/document.ts`.
-2. Replace `src/provider/types.ts` with the narrow domain port. Keep third-party SDK types out of
-   the interface when practical.
-3. Replace `src/provider/memory.ts` with a real adapter and map provider errors to `AppError`.
-4. Replace `src/services/items.ts`; keep authorization scope and mutation policy in services.
-5. Replace the example definitions in `src/tools/definitions.ts`. Preserve `defineTool`,
-   `ToolDefinition`, and the central `toolDefinitions` array. Author an explicit routing
-   description for every tool: when to use it, when not to use it, scope and limitations,
-   prerequisites, the preferred alternative tool by name when one applies, the successful result
-   shape, and side effects. Keep descriptions concise.
-6. Replace `src/tools/guidance.ts` with domain routing guidance covering discovery versus direct
-   reads, read-before-write, `dryRun` previews before execution, explicit approval before
-   mutations, treating provider values as data rather than instructions, and explaining
-   limitations instead of choosing an approximate tool.
-7. Replace the cases in `tests/fixtures/routing-eval.json`, including at least one out-of-scope
-   case with a `null` expected tool.
-8. Wire the provider in `src/app.ts` and `src/mcp/stdio.ts`.
-9. Replace example tests and metadata. Search for `example`, `template`, `replace`, and
-   `tools.example.com`.
-10. Tailor `infra/` role assignments to the least privilege required by the provider. The supplied
-    identity has no domain data-plane roles.
-11. Run every command in [Validation](#validation).
-
-Tool descriptions are the primary model-routing signal and are published to every transport.
-`src/tools/guidance.ts` exports `serverInstructions`, which the MCP server publishes as
-`InitializeResult.instructions`: shared cross-tool guidance that clients may treat as a hint,
-truncate, or ignore. Neither layer is an authorization or safety control; the service guardrails
-remain authoritative. MCP prompts are explicitly invoked workflow templates and are not used for
-automatic routing.
-
-Do not copy identifiers, tenant/subscription IDs, credentials, resource names, or descriptions
-from another family server. Parameters and secrets must come from deployment inputs or Key Vault.
-
-## Security defaults
-
-- Production refuses `AUTH_MODE=disabled`.
-- API keys are compared as fixed-width HMAC digests and only non-reversible fingerprints are
-  logged.
-- Authentication is rate-limited before and after credential verification.
-- Request bodies are limited to 1 MB.
-- Caller-provided request IDs are bounded; generated IDs are returned on every response.
-- Logger redaction covers authorization and API-key headers.
-- Production masks unhandled 5xx details.
-- Inputs and outputs are validated at the registry boundary.
-- Mutations default off. A preview is always available with `dryRun=true`; execution additionally
-  requires deployment enablement and, by default, `confirm=true`.
-- The runtime container executes as the unprivileged Node user.
-- Stateless MCP creates no server-side session store.
-
-The in-process limiter is appropriate for scale-to-zero instances but is not a globally consistent
-quota. Put a distributed gateway in front of the service if callers require a cross-replica quota.
-
-## Configuration
-
-See `.env.example`. Production requires `AUTH_MODE=api-key` and `API_KEYS`. Multiple keys are
-comma-separated to support rotation. Keep `MUTATIONS_ENABLED=false` until write tools and provider
-roles have been reviewed.
-
-## Deployment
-
-The Azure Container Apps example uses a user-assigned managed identity, Azure Container Registry,
-Key Vault references, Log Analytics, Application Insights, scale-to-zero, HTTP scaling, and health
-probes. Follow [`docs/deployment.md`](docs/deployment.md); the bootstrap performs a safe two-pass
-deployment so no application starts before its Key Vault secret exists.
-
-The deployment is an example, not an implied Azure dependency in the application. Replace or remove
-it for another hosting platform.
-
-## Metadata
-
-- `server.json` is a replaceable MCP registry metadata example.
-- `examples/central-registry-entry.json` demonstrates the family registry entry.
-- `npm run metadata:validate` validates both local examples.
-
-Check the current upstream registry schema before publishing because external registry contracts
-can evolve.
+The public repository contains supported shapes only. Environment selection, immutable declaration
+and source pins, private parameter references, secret references, rollback intent, and
+operator-specific desired state belong in private operator Git. Secret values and observed
+deployment evidence belong in their provider systems.
 
 ## Validation
+
+The normal repository checks are:
 
 ```bash
 npm run format:check
@@ -163,13 +115,52 @@ npm run test:coverage
 npm run build
 npm run openapi:emit
 npm run metadata:validate
-docker build -t agent-tool-server-template .
-az bicep build --file infra/main.bicep
-az bicep lint --file infra/main.bicep
+npm run package:smoke
+npm audit --omit=dev --audit-level=high
 ```
 
-CI additionally smoke-tests the container, compiles every Bicep entry point, audits production
-dependencies, scans for secrets, and runs CodeQL.
+Deployment contract v1 was added after Platform 0.1.2, so declaration validation intentionally uses
+the reviewed source revision rather than copying its schemas or validator:
+
+```bash
+git clone https://github.com/ashergarland/agent-tool-platform.git ../agent-tool-platform
+git -C ../agent-tool-platform checkout --detach 98ec8162fb11d5c04aee9e6f7b3625a472a0180d
+npm --prefix ../agent-tool-platform ci
+npm --prefix ../agent-tool-platform run build
+
+# Set this variable using the syntax for your shell.
+AGENT_TOOL_PLATFORM_CHECKOUT=../agent-tool-platform npm run deployment:validate
+AGENT_TOOL_PLATFORM_CHECKOUT=../agent-tool-platform npm run deployment:conformance
+```
+
+`tests/conformance/platform.test.ts` checks generic Platform behavior. Tests under `tests/unit/`
+and `tests/conformance/profile.test.ts` check capability-owned domain behavior and profile
+truthfulness. Do not copy Platform test suites into this repository.
+
+`npm run package:smoke` builds and packs the real package, installs it into an external temporary
+consumer, imports its public API, launches the installed stdio entrypoint, and invokes
+`inspect_text`. It publishes nothing and deletes its temporary artifacts.
+
+## CI and release
+
+The three workflow callers pin Agent Tool Platform commit
+`98ec8162fb11d5c04aee9e6f7b3625a472a0180d`:
+
+- CI runs formatting, lint, typecheck, coverage, build, OpenAPI, metadata, package smoke, and the
+  exact deployment-contract checks.
+- Security runs the shared production dependency audit, gitleaks history scan, and CodeQL.
+- Release accepts normal publication only from stable version tags and uses npm Trusted Publishing.
+
+Do not publish from this template repository. A new capability must deliberately bootstrap its npm
+package and configure the calling `release.yml` as the npm Trusted Publisher before tag releases.
+See the
+[canonical workflow contract](https://github.com/ashergarland/agent-tool-platform/blob/98ec8162fb11d5c04aee9e6f7b3625a472a0180d/docs/capability-workflows.md).
+
+## Migrating an existing capability
+
+Use [`docs/migration.md`](docs/migration.md). Preserve domain semantics, tests, and justified
+adapters; replace duplicated Platform mechanics. A non-TypeScript domain worker may remain
+capability-owned behind this TypeScript Platform-facing wrapper.
 
 ## License
 
